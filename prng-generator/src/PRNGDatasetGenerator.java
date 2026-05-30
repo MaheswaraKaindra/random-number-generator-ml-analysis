@@ -1,6 +1,7 @@
 import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.security.SecureRandom;
 
 public class PRNGDatasetGenerator {
 
@@ -89,6 +90,86 @@ public class PRNGDatasetGenerator {
         }
     }
 
+    // ChaCha20
+    static class ChaCha20 implements PRNG {
+        private int[] state = new int[16];
+        private int[] buffer = new int[16];
+        private int index = 16;
+
+        public ChaCha20(long seed) {
+            state[0] = 0x61707865;
+            state[1] = 0x3320646e;
+            state[2] = 0x79622d32;
+            state[3] = 0x6b206574;
+
+            for (int i = 4; i < 12; i++) {
+                state[i] = (int) (seed ^ (i * 0x9E3779B9L));
+            }
+
+            state[12] = 0; 
+            state[13] = 0; 
+            state[14] = 0;
+            state[15] = 0;
+        }
+
+        private int rotate(int val, int shift) {
+            return (val << shift) | (val >>> (32 - shift));
+        }
+
+        private void quarterRound(int[] x, int a, int b, int c, int d) {
+            x[a] += x[b]; x[d] ^= x[a]; x[d] = rotate(x[d], 16);
+            x[c] += x[d]; x[b] ^= x[c]; x[b] = rotate(x[b], 12);
+            x[a] += x[b]; x[d] ^= x[a]; x[d] = rotate(x[d], 8);
+            x[c] += x[d]; x[b] ^= x[c]; x[b] = rotate(x[b], 7);
+        }
+
+        private void generateBlock() {
+            System.arraycopy(state, 0, buffer, 0, 16);
+            
+            // 20 rounds
+            for (int i = 0; i < 10; i++) {
+                quarterRound(buffer, 0, 4, 8, 12);
+                quarterRound(buffer, 1, 5, 9, 13);
+                quarterRound(buffer, 2, 6, 10, 14);
+                quarterRound(buffer, 3, 7, 11, 15);
+                quarterRound(buffer, 0, 5, 10, 15);
+                quarterRound(buffer, 1, 6, 11, 12);
+                quarterRound(buffer, 2, 7, 8, 13);
+                quarterRound(buffer, 3, 4, 9, 14);
+            }
+            
+            for (int i = 0; i < 16; i++) {
+                buffer[i] += state[i];
+            }
+            
+            state[12]++;
+            index = 0;
+        }
+
+        @Override
+        public long next() {
+            if (index >= 16) {
+                generateBlock();
+            }
+            return buffer[index++] & 0xFFFFFFFFL;
+        }
+    }
+
+    // SecureRandom
+    static class SysSecureRandom implements PRNG {
+        private SecureRandom sr;
+
+        public SysSecureRandom(long seed) {
+            sr = new SecureRandom();
+            sr.setSeed(seed); 
+        }
+
+        @Override
+        public long next() {
+            return sr.nextInt() & 0xFFFFFFFFL;
+        }
+    }
+
     public static void generateDataset(PRNG algorithm, String filename, int numberOfSamples) {
         System.out.println("Generating Dataset: " + filename);
         
@@ -127,6 +208,12 @@ public class PRNGDatasetGenerator {
                 break;
             case "A51":
                 prng = new A51(seed);
+                break;
+            case "CHACHA20":
+                prng = new ChaCha20(seed);
+                break;
+            case "SECURERANDOM":
+                prng = new SysSecureRandom(seed);
                 break;
             default:
                 System.out.println("Algorithm not recognized: " + algoName);
