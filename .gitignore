@@ -1,0 +1,26 @@
+# Dataset
+data/
+*.bin
+*.csv
+
+# Java Compiled Files
+*.class
+*.jar
+prng-generator/build/
+prng-generator/out/
+
+# Python & Jupyter
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+
+# Virtual Environments
+venv/
+env/
+.venv/
+ml-evaluator/venv/
+
+# IDE & Editor
+.idea/
+.vscode/
+*.swp
